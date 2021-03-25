@@ -7,6 +7,7 @@
 //
 
 #import "BSPanoramaView.h"
+#import "SDWebImageManager.h"
 
 @interface BSPanoramaView ()
 
@@ -52,10 +53,33 @@
 }
 
 - (void)setImageWithName:(NSString *)imageName {
+    UIImage *textureImage;
+      NSString *cacheImagePath;
+      if ([imageName hasPrefix:@"http://"] || [imageName hasPrefix:@"https://"] ) {
+           __block  NSString *cacheImageKey = [[SDWebImageManager sharedManager] cacheKeyForURL:[NSURL URLWithString:imageName]];
+          if (!cacheImageKey) {
+              [[SDWebImageManager sharedManager] downloadImageWithURL:[NSURL URLWithString:imageName] options:SDWebImageRetryFailed progress:^(NSInteger receivedSize, NSInteger expectedSize) {
+                  
+              } completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
+                  if (image) {
+                      cacheImageKey = [[SDWebImageManager sharedManager] cacheKeyForURL:[NSURL URLWithString:imageName]];
+                  }
+              }];
+             
+          } else {
+              cacheImagePath = [[SDImageCache sharedImageCache] defaultCachePathForKey:cacheImageKey];
+              textureImage = [UIImage imageWithContentsOfFile:cacheImagePath];
+          }
+          
+      } else {
+          textureImage = [UIImage imageNamed:imageName];
+      }
+      if (!textureImage) {
+          return;
+      }
     self.shouldUnload = NO;
     /// 将图片转换成为纹理信息，由于OpenGL的默认坐标系设置在左下角, 而GLKit在左上角, 因此需要转换
     NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:YES], GLKTextureLoaderOriginBottomLeft, nil];
-    UIImage *textureImage = [UIImage imageNamed:imageName];
     if (textureImage.size.height * textureImage.size.width > 4096.1f * 2048.1f) {
         return ;
     }
